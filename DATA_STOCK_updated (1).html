@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Colony Hub</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --navy: #16213e;
+            --navy-light: #1e2d54;
+            --accent: #2c5282;
+            --text-muted: #6b7280;
+            --border: #e5e7eb;
+            --bg: #f4f5f7;
+        }
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: var(--bg); margin: 0; display: flex; color: #1f2937; }
+
+        .sidebar { width: 250px; height: 100vh; background: var(--navy); color: #cbd5e1; position: fixed; top: 0; left: 0; transition: transform 0.3s; z-index: 1001; display: flex; flex-direction: column; }
+        .sidebar-header { padding: 22px 20px; font-size: 17px; font-weight: 600; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.08); letter-spacing: 0.02em; }
+        .sidebar-header small { display: block; font-weight: 400; font-size: 11px; color: #94a3b8; margin-top: 2px; letter-spacing: 0.05em; }
+        .nav-link-custom { padding: 13px 22px; color: #b6c2d9; cursor: pointer; display: flex; align-items: center; text-decoration: none; font-size: 14px; border-left: 3px solid transparent; transition: 0.15s; }
+        .nav-link-custom:hover { background: rgba(255,255,255,0.05); color: #fff; }
+        .nav-link-custom.active { background: rgba(255,255,255,0.07); border-left-color: #5b8def; color: #fff; font-weight: 600; }
+
+        .main-content { margin-left: 250px; width: calc(100% - 250px); padding: 24px 28px; transition: margin-left 0.3s; }
+        .top-bar { background: white; padding: 14px 22px; border-radius: 10px; border: 1px solid var(--border); margin-bottom: 22px; display: flex; justify-content: space-between; align-items: center; }
+        .top-bar h5 { font-weight: 600; color: var(--navy); }
+
+        .form-card { background: white; border-radius: 10px; border: 1px solid var(--border); padding: 24px; margin-bottom: 18px; }
+        .form-card h4 { color: var(--navy); font-weight: 600; font-size: 17px; padding-bottom: 12px; margin-bottom: 18px; border-bottom: 1px solid var(--border); }
+        .form-card h5 { color: var(--navy); font-weight: 600; font-size: 15px; }
+        label { font-size: 13px; font-weight: 500; color: #4b5563; margin-bottom: 4px; }
+
+        .btn-submit { background: var(--accent); color: white; padding: 11px; border-radius: 7px; font-weight: 600; font-size: 14px; width: 100%; border: none; }
+        .btn-submit:hover { background: var(--navy-light); }
+        .btn-submit:disabled { background: #a3adc2; }
+
+        .hidden-field { display: none; }
+
+        .kpi-card { background: white; border-radius: 10px; border: 1px solid var(--border); border-left: 4px solid var(--accent); padding: 16px 18px; }
+        .kpi-card.accent-green { border-left-color: #15803d; }
+        .kpi-card.accent-red { border-left-color: #b91c1c; }
+        .kpi-card.accent-amber { border-left-color: #b45309; }
+        .kpi-card.accent-grey { border-left-color: #4b5563; }
+        .kpi-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; }
+        .kpi-val { font-size: 23px; font-weight: 700; color: var(--navy); margin-top: 4px; }
+
+        .alert-success, .alert-error { position: fixed; top: 20px; right: 20px; z-index: 2000; display: none; border-radius: 8px; font-size: 14px; }
+        .menu-btn { display: none; background: var(--navy); color: white; border: none; padding: 9px 14px; border-radius: 6px; cursor: pointer; }
+
+        .dynamic-fields { background: var(--bg); padding: 14px; border-radius: 7px; margin-top: 8px; border: 1px solid var(--border); }
+        .dynamic-fields h6 { font-size: 13px; color: var(--accent); font-weight: 600; }
+
+        .edit-btn { cursor: pointer; color: var(--accent); font-weight: 600; font-size: 13px; }
+        .editing-banner { background: #fffbeb; border: 1px solid #fde68a; padding: 9px 15px; border-radius: 7px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+
+        .setup-warning { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; padding: 12px 18px; border-radius: 8px; margin-bottom: 18px; font-size: 13px; display: none; }
+
+        .table-sm td, .table-sm th { font-size: 13px; vertical-align: middle; }
+        .table th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted); font-weight: 600; }
+
+        @media (max-width: 768px) {
+            .sidebar { transform: translateX(-250px); }
+            .sidebar.open { transform: translateX(0); }
+            .main-content { margin-left: 0; width: 100%; padding: 18px; }
+            .menu-btn { display: block; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="alert alert-success" id="successMsg">✅ Saved successfully.</div>
+<div class="alert alert-danger" id="errorMsg">❌ Save failed — check internet and try again.</div>
+
+<!-- Sidebar -->
+<div class="sidebar" id="sidebar">
+    <div class="sidebar-header">🏢 Colony Hub<small>REAL ESTATE OPERATIONS</small></div>
+    <div class="nav-link-custom active" onclick="showPage('dashboard', this)">📊 Dashboard</div>
+    <div class="nav-link-custom" onclick="showPage('stock', this)">📍 Stock List</div>
+    <div class="nav-link-custom" onclick="showPage('receivable', this)">💰 Receivables</div>
+    <div class="nav-link-custom" onclick="showPage('payable', this)">⚖️ Payables</div>
+    <div class="nav-link-custom" onclick="showPage('expense', this)">💸 Expenses</div>
+    <div class="nav-link-custom" onclick="showPage('development', this)">🚧 Development</div>
+    <div class="nav-link-custom" onclick="showPage('sheet', this)">📄 Back Office</div>
+</div>
+
+<!-- Main Content -->
+<div class="main-content">
+    <div class="top-bar">
+        <div style="display:flex; align-items:center;">
+            <button class="menu-btn" onclick="toggleSidebar()">Menu</button>
+            <h5 class="mb-0 ms-3" id="page-title">Dashboard Overview</h5>
+        </div>
+    </div>
+
+    <div class="setup-warning" id="setupWarning">
+        Backend URL set nahi hai abhi — <code>SCRIPT_URL</code> ko is file ke bottom &lt;script&gt; mein apne deployed Apps Script URL se replace karo. Tab tak dropdowns/list default/khaali dikhenge.
+    </div>
+
+    <!-- DASHBOARD PAGE -->
+    <div id="page-dashboard" class="page-content">
+        <div class="form-card" style="padding: 14px 20px;">
+            <div class="row align-items-center">
+                <div class="col-md-4">
+                    <label class="mb-1">Filter by Colony</label>
+                    <select class="form-select" id="dashboardColonyFilter" onchange="loadDashboard()"><option value="">All Colonies</option></select>
+                </div>
+            </div>
+        </div>
+        <div class="row mb-3">
+            <div class="col-md-3 col-6 mb-3"><div class="kpi-card"><div class="kpi-label">Total Plots</div><div class="kpi-val" id="kpiTotalPlots">0</div></div></div>
+            <div class="col-md-3 col-6 mb-3"><div class="kpi-card accent-green"><div class="kpi-label">Sold Plots</div><div class="kpi-val" id="kpiSold">0</div></div></div>
+            <div class="col-md-3 col-6 mb-3"><div class="kpi-card accent-amber"><div class="kpi-label">Unsold Stock Value</div><div class="kpi-val" id="kpiUnsoldVal">₹0</div></div></div>
+            <div class="col-md-3 col-6 mb-3"><div class="kpi-card"><div class="kpi-label">Total Receivable</div><div class="kpi-val" id="kpiRec">₹0</div></div></div>
+        </div>
+        <div class="row mb-3">
+            <div class="col-md-4 col-6 mb-3"><div class="kpi-card accent-red"><div class="kpi-label">Total Payable (incl. Development)</div><div class="kpi-val" id="kpiPay">₹0</div></div></div>
+            <div class="col-md-4 col-6 mb-3"><div class="kpi-card accent-amber"><div class="kpi-label">Total Expenses</div><div class="kpi-val" id="kpiExp">₹0</div></div></div>
+            <div class="col-md-4 col-6 mb-3"><div class="kpi-card accent-grey"><div class="kpi-label">Net Position (Receivable − Payable)</div><div class="kpi-val" id="kpiNet">₹0</div></div></div>
+        </div>
+        <div class="row">
+            <div class="col-md-6 mb-3"><div class="form-card"><h5>Plot Status Overview</h5><canvas id="chartPlotStatus"></canvas></div></div>
+            <div class="col-md-6 mb-3"><div class="form-card"><h5>Finance Overview</h5><canvas id="chartFinance"></canvas></div></div>
+        </div>
+        <div class="form-card">
+            <h5>Colony-wise Pendency Summary</h5>
+            <div class="table-responsive">
+                <table class="table table-bordered align-middle mb-0">
+                    <thead class="table-light"><tr><th>Colony</th><th>Total Receivable</th><th>Total Payable</th><th>Net</th></tr></thead>
+                    <tbody id="colonySummaryBody"><tr><td colspan="4" class="text-center text-muted">Loading...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- STOCK PAGE -->
+    <div id="page-stock" class="page-content" style="display:none;">
+        <div class="form-card">
+            <div id="stock_editing_banner" class="editing-banner hidden-field">
+                <span>Editing existing entry</span>
+                <button class="btn btn-sm btn-outline-secondary" onclick="resetForm('stock')">+ New Entry Instead</button>
+            </div>
+            <h4>📍 Add / Update Plot</h4>
+            <input type="hidden" id="s_id">
+            <div class="row mb-3">
+                <div class="col-md-4"><label>Serial No.</label><input type="text" class="form-control" id="s_serial" placeholder="e.g., 001"></div>
+                <div class="col-md-4"><label>Colony Name</label><select class="form-select" id="s_colony"></select></div>
+                <div class="col-md-4"><label>Plot No.</label><input type="text" class="form-control" id="s_plot"></div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-6"><label>Size (sq. ft.)</label><input type="number" class="form-control" id="s_size" oninput="calcForecast()"></div>
+                <div class="col-md-6"><label>Rate (Per sq. ft.)</label><input type="number" class="form-control" id="s_rate" oninput="calcForecast()"></div>
+            </div>
+            <div class="mb-3"><label>Total Deal Value (Forecast)</label><input type="text" class="form-control bg-light" id="s_forecast" readonly></div>
+            <div class="mb-3"><label>Status</label><select class="form-select" id="s_status" onchange="toggleStockFields()"><option value="Unsold">Unsold / Vacant</option><option value="Sold">Sold</option></select></div>
+            <div id="sold_fields" class="hidden-field">
+                <div class="row mb-3">
+                    <div class="col-md-4"><label>Advance Received</label><input type="number" class="form-control" id="s_advance" oninput="calcStockBalance()"></div>
+                    <div class="col-md-4"><label>Total Deal</label><input type="number" class="form-control" id="s_total" oninput="calcStockBalance()"></div>
+                    <div class="col-md-4"><label>Balance</label><input type="text" class="form-control bg-light" id="s_balance" readonly></div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6"><label>Registry Done?</label><select class="form-select" id="s_registry"><option value="No">No</option><option value="Yes">Yes</option></select></div>
+                    <div class="col-md-6"><label>Mobile Number</label><input type="text" class="form-control" id="s_mobile"></div>
+                </div>
+                <div class="mb-3"><label>Owner / Buyer Name</label><input type="text" class="form-control" id="s_owner"></div>
+                <div class="mb-3"><label>Map (Naksha) Link</label><input type="text" class="form-control" id="s_map"></div>
+                <div class="row mb-3">
+                    <div class="col-md-6"><label>Last Payment Date</label><input type="date" class="form-control" id="s_lastPayDate"></div>
+                    <div class="col-md-6"><label>Last Payment Amount</label><input type="number" class="form-control" id="s_lastPayAmt"></div>
+                </div>
+                <div class="mb-3"><label>Booking Form / Agreement Copy (Drive Link)</label><input type="text" class="form-control" id="s_bookingForm" placeholder="Scanned booking form / sauda agreement"></div>
+            </div>
+            <button class="btn-submit" id="btn_stock" onclick="submitStock()">Submit Stock Data</button>
+        </div>
+        <div class="form-card">
+            <h5>Existing Plots</h5>
+            <div class="table-responsive"><table class="table table-sm table-bordered align-middle">
+                <thead class="table-light"><tr><th>Colony</th><th>Plot</th><th>Status</th><th>Deal Value</th><th></th></tr></thead>
+                <tbody id="stock_list_body"><tr><td colspan="5" class="text-center text-muted">Loading...</td></tr></tbody>
+            </table></div>
+        </div>
+    </div>
+
+    <!-- RECEIVABLE PAGE -->
+    <div id="page-receivable" class="page-content" style="display:none;">
+        <div class="form-card">
+            <div id="receivable_editing_banner" class="editing-banner hidden-field">
+                <span>Editing existing entry</span>
+                <button class="btn btn-sm btn-outline-secondary" onclick="resetForm('receivable')">+ New Entry Instead</button>
+            </div>
+            <h4>💰 Receivables (Customer Dues)</h4>
+            <input type="hidden" id="r_id">
+            <div class="row mb-3">
+                <div class="col-md-6"><label>Colony Name</label><select class="form-select" id="r_colony"></select></div>
+                <div class="col-md-6"><label>Plot No.</label><input type="text" class="form-control" id="r_plot"></div>
+            </div>
+            <div class="mb-3"><label>Customer Name</label><input type="text" class="form-control" id="r_name"></div>
+            <div class="row mb-3">
+                <div class="col-md-4"><label>Total Deal Value</label><input type="number" class="form-control" id="r_total" oninput="calcReceivablePending()"></div>
+                <div class="col-md-4"><label>Received Till Date</label><input type="number" class="form-control" id="r_received" oninput="calcReceivablePending()"></div>
+                <div class="col-md-4"><label>Pending Amount</label><input type="text" class="form-control bg-light" id="r_amount" readonly></div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-6"><label>Mobile Number</label><input type="text" class="form-control" id="r_mobile"></div>
+                <div class="col-md-6"><label>Last Payment Date</label><input type="date" class="form-control" id="r_lastPayDate"></div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-6"><label>Customer Ledger / Khata Photo (Drive Link)</label><input type="text" class="form-control" id="r_ledgerDoc" placeholder="Date-wise payment history photo"></div>
+                <div class="col-md-6"><label>Payment Schedule Agreement Photo (Drive Link)</label><input type="text" class="form-control" id="r_scheduleDoc" placeholder="Kab-kab kitna dega wala kagaz"></div>
+            </div>
+            <button class="btn-submit" id="btn_receivable" onclick="submitReceivable()">Submit Receivable</button>
+        </div>
+        <div class="form-card">
+            <h5>Existing Receivables</h5>
+            <div class="table-responsive"><table class="table table-sm table-bordered align-middle">
+                <thead class="table-light"><tr><th>Colony</th><th>Customer</th><th>Total Deal</th><th>Pending</th><th></th></tr></thead>
+                <tbody id="receivable_list_body"><tr><td colspan="5" class="text-center text-muted">Loading...</td></tr></tbody>
+            </table></div>
+        </div>
+    </div>
+
+    <!-- PAYABLES PAGE -->
+    <div id="page-payable" class="page-content" style="display:none;">
+        <div class="form-card">
+            <div id="payable_editing_banner" class="editing-banner hidden-field">
+                <span>Editing existing entry</span>
+                <button class="btn btn-sm btn-outline-secondary" onclick="resetForm('payable')">+ New Entry Instead</button>
+            </div>
+            <h4>⚖️ Payables (Legal &amp; Technical Liabilities)</h4>
+            <input type="hidden" id="p_id">
+            <div class="row mb-3">
+                <div class="col-md-6"><label>Colony Name</label><select class="form-select" id="p_colony"></select></div>
+                <div class="col-md-6"><label>Liability Category</label>
+                    <select class="form-select" id="p_category" onchange="toggleDynamicFields('p')">
+                        <option value="Land Owner Payment">Land Owner Payment</option>
+                        <option value="Registry Payment">Registry Payment</option>
+                        <option value="Conversion Payment">Conversion Payment</option>
+                        <option value="Agent Commission">Agent Commission</option>
+                        <option value="Development Cost">Development Cost</option>
+                    </select>
+                </div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-6"><label>Amount</label><input type="number" class="form-control" id="p_amount"></div>
+                <div class="col-md-6"><label>Paid To (Person/Agency)</label><input type="text" class="form-control" id="p_person"></div>
+            </div>
+
+            <div id="p_dynamic_fields" class="dynamic-fields"></div>
+
+            <div class="mt-3"><label>Remarks</label><textarea class="form-control" id="p_remarks" rows="2"></textarea></div>
+            <button class="btn-submit mt-3" id="btn_payable" onclick="submitPayable()">Submit Payable</button>
+        </div>
+        <div class="form-card">
+            <h5>Existing Payables <span class="text-muted small">(Development Cost rows auto-managed — Development page se hi edit karo)</span></h5>
+            <div class="table-responsive"><table class="table table-sm table-bordered align-middle">
+                <thead class="table-light"><tr><th>Colony</th><th>Category</th><th>Amount</th><th>Paid To</th><th></th></tr></thead>
+                <tbody id="payable_list_body"><tr><td colspan="5" class="text-center text-muted">Loading...</td></tr></tbody>
+            </table></div>
+        </div>
+    </div>
+
+    <!-- EXPENSES PAGE -->
+    <div id="page-expense" class="page-content" style="display:none;">
+        <div class="form-card">
+            <div id="expense_editing_banner" class="editing-banner hidden-field">
+                <span>Editing existing entry</span>
+                <button class="btn btn-sm btn-outline-secondary" onclick="resetForm('expense')">+ New Entry Instead</button>
+            </div>
+            <h4>💸 Expenses (Operational &amp; Daily Kharch)</h4>
+            <input type="hidden" id="e_id">
+            <div class="mb-3"><label>Expense Category</label>
+                <select class="form-select" id="e_category" onchange="toggleDynamicFields('e')">
+                    <option value="Petty Cash">Petty Cash</option>
+                    <option value="Office Rent">Office Rent</option>
+                    <option value="Travelling">Travelling / Fuel</option>
+                    <option value="Tea/Snacks">Tea / Snacks</option>
+                    <option value="Office Stationary">Office Stationary</option>
+                    <option value="Misc Expense">Misc Expense</option>
+                </select>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-6"><label>Amount</label><input type="number" class="form-control" id="e_amount"></div>
+                <div class="col-md-6"><label>Paid By / To</label><input type="text" class="form-control" id="e_person"></div>
+            </div>
+
+            <div id="e_dynamic_fields" class="dynamic-fields"></div>
+
+            <div class="mt-3"><label>Remarks (Kis kaam ke liye)</label><textarea class="form-control" id="e_remarks" rows="2"></textarea></div>
+            <button class="btn-submit mt-3" id="btn_expense" onclick="submitExpense()">Submit Expense</button>
+        </div>
+        <div class="form-card">
+            <h5>Existing Expenses</h5>
+            <div class="table-responsive"><table class="table table-sm table-bordered align-middle">
+                <thead class="table-light"><tr><th>Category</th><th>Amount</th><th>Paid By/To</th><th></th></tr></thead>
+                <tbody id="expense_list_body"><tr><td colspan="4" class="text-center text-muted">Loading...</td></tr></tbody>
+            </table></div>
+        </div>
+    </div>
+
+    <!-- DEVELOPMENT PAGE -->
+    <div id="page-development" class="page-content" style="display:none;">
+        <div class="form-card">
+            <div id="development_editing_banner" class="editing-banner hidden-field">
+                <span>Editing existing entry</span>
+                <button class="btn btn-sm btn-outline-secondary" onclick="resetForm('development')">+ New Entry Instead</button>
+            </div>
+            <h4>🚧 Development Pendency</h4>
+            <p class="text-muted small">Sirf ho gaya / nahi hua aur length bharo. Cost office ke paas backend pe calculate ho jaati hai — yahan kabhi nahi dikhti.</p>
+            <input type="hidden" id="d_id">
+            <div class="mb-3"><label>Colony Name</label><select class="form-select" id="d_colony"></select></div>
+            <div class="row mb-3">
+                <div class="col-md-6"><label>Demarcation Done?</label><select class="form-select" id="d_demarc"><option>No</option><option>Yes</option></select></div>
+                <div class="col-md-6"><label>Daand (Length ft)</label><input type="text" class="form-control" id="d_daand" placeholder="e.g., 500 ft"></div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-6"><label>Soil Filling Done?</label><select class="form-select" id="d_soilDone"><option>No</option><option>Yes</option></select></div>
+                <div class="col-md-6"><label>Soil Filling (Length ft)</label><input type="text" class="form-control" id="d_soil" placeholder="e.g., 200 ft"></div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-6"><label>Daboras Done?</label><select class="form-select" id="d_daboras"><option>No</option><option>Yes</option></select></div>
+                <div class="col-md-6"><label>Daboras (Length ft)</label><input type="text" class="form-control" id="d_daborasLength" placeholder="e.g., 150 ft"></div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-6"><label>Rolling Done?</label><select class="form-select" id="d_rolling"><option>No</option><option>Yes</option></select></div>
+                <div class="col-md-6"><label>Rolling (Length ft)</label><input type="text" class="form-control" id="d_rollingLength" placeholder="e.g., 150 ft"></div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-6"><label>Tar/CC Road Done?</label><select class="form-select" id="d_road"><option>No</option><option>Yes</option></select></div>
+                <div class="col-md-6"><label>Tar/CC Road (Length ft)</label><input type="text" class="form-control" id="d_roadLength" placeholder="e.g., 150 ft"></div>
+            </div>
+            <button class="btn-submit" id="btn_development" onclick="submitDevelopment()">Submit Status</button>
+        </div>
+        <div class="form-card">
+            <h5>Existing Development Entries <span class="text-muted small">(cost yahan nahi dikhti)</span></h5>
+            <div class="table-responsive"><table class="table table-sm table-bordered align-middle">
+                <thead class="table-light"><tr><th>Colony</th><th>Daand</th><th>Soil Filling</th><th>Daboras</th><th>Rolling</th><th>Tar/CC</th><th></th></tr></thead>
+                <tbody id="development_list_body"><tr><td colspan="7" class="text-center text-muted">Loading...</td></tr></tbody>
+            </table></div>
+        </div>
+    </div>
+
+    <!-- SHEET LINK PAGE -->
+    <div id="page-sheet" class="page-content" style="display:none;">
+        <div class="form-card text-center">
+            <h4>📄 Back Office Master Google Sheet</h4>
+            <p class="text-muted">Click the button below to view all collected data with proofs.</p>
+            <a href="https://docs.google.com/spreadsheets/d/1E71TnNcg4yASH3LaxP8nDdpblxFUK_aax1_txNi6dqo/edit" target="_blank" class="btn btn-success btn-lg w-100">Open Master Google Sheet</a>
+        </div>
+    </div>
+</div>
+
+<script>
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwjrVl7x0VZrsw795SjR3Dalkq0KreSeP41Z_mSkGnqQguwjJ0adJFztYzzYvxM5EPW/exec";
+    const COLONY_SELECT_IDS = ['s_colony', 'r_colony', 'p_colony', 'd_colony'];
+    const ADD_NEW_VALUE = '__add_new__';
+    // Backend down/not-configured ho tab bhi form usable rahe, isliye ek local fallback list.
+    const FALLBACK_COLONIES = ['Gopal Vihar', 'New Akshardham', 'Anjani Nagar', 'Akshardham', 'Dwarika / New Dwarika'];
+
+    let chart1, chart2;
+    let allRowsCache = [];
+
+    function isScriptUrlConfigured() {
+        return SCRIPT_URL && SCRIPT_URL.indexOf('PASTE_YOUR') === -1;
+    }
+
+    // ---------------- Colonies (dynamic, "+ Add New Colony") ----------------
+    function loadColonies() {
+        if (!isScriptUrlConfigured()) return Promise.resolve(FALLBACK_COLONIES);
+        return fetch(SCRIPT_URL + '?action=colonies')
+            .then(res => res.json())
+            .then(data => (Array.isArray(data) && data.every(x => typeof x === 'string')) ? data : FALLBACK_COLONIES)
+            .catch(() => FALLBACK_COLONIES);
+    }
+    function populateColonySelect(selectEl, colonies) {
+        const currentVal = selectEl.value;
+        selectEl.innerHTML = colonies.map(c => `<option value="${c}">${c}</option>`).join('')
+            + `<option value="${ADD_NEW_VALUE}">+ Add New Colony</option>`;
+        if (colonies.includes(currentVal)) selectEl.value = currentVal;
+    }
+    function initColonyDropdowns() {
+        loadColonies().then(colonies => {
+            window.__colonies = colonies;
+            COLONY_SELECT_IDS.forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                populateColonySelect(el, colonies);
+                el.addEventListener('change', function () { handleColonyChange(this); });
+            });
+        });
+    }
+    function handleColonyChange(selectEl) {
+        if (selectEl.value !== ADD_NEW_VALUE) return;
+        const name = prompt('Naye colony ka naam likho:');
+        if (!name || !name.trim()) { selectEl.selectedIndex = 0; return; }
+        const trimmed = name.trim();
+
+        if (!isScriptUrlConfigured()) {
+            FALLBACK_COLONIES.push(trimmed);
+            COLONY_SELECT_IDS.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) populateColonySelect(el, FALLBACK_COLONIES);
+            });
+            selectEl.value = trimmed;
+            return;
+        }
+
+        fetch(SCRIPT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ module: 'Colony', name: trimmed })
+        }).then(res => res.json()).then(() => {
+            loadColonies().then(colonies => {
+                window.__colonies = colonies;
+                COLONY_SELECT_IDS.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) populateColonySelect(el, colonies);
+                });
+                selectEl.value = trimmed;
+            });
+        }).catch(err => {
+            console.error('Add colony error:', err);
+            selectEl.selectedIndex = 0;
+        });
+    }
+
+    // ---------------- Navigation Logic ----------------
+    const LIST_MODULES = ['stock', 'receivable', 'payable', 'expense', 'development'];
+
+    function showPage(pageId, element) {
+        document.querySelectorAll('.page-content').forEach(p => p.style.display = 'none');
+        document.getElementById('page-' + pageId).style.display = 'block';
+        document.querySelectorAll('.nav-link-custom').forEach(n => n.classList.remove('active'));
+        element.classList.add('active');
+        document.getElementById('page-title').innerText = element.innerText.trim();
+        if (pageId === 'dashboard') loadDashboard();
+        if (pageId === 'payable') toggleDynamicFields('p');
+        if (pageId === 'expense') toggleDynamicFields('e');
+        if (LIST_MODULES.includes(pageId)) loadModuleList(pageId);
+        if (window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('open');
+    }
+    function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
+
+    // ---------------- Stock Calculations ----------------
+    function calcForecast() {
+        let size = document.getElementById('s_size').value;
+        let rate = document.getElementById('s_rate').value;
+        document.getElementById('s_forecast').value = (size && rate) ? (size * rate).toLocaleString('en-IN') : "";
+    }
+    function calcStockBalance() {
+        let total = Number(document.getElementById('s_total').value) || 0;
+        let advance = Number(document.getElementById('s_advance').value) || 0;
+        document.getElementById('s_balance').value = (total - advance).toLocaleString('en-IN');
+    }
+    function toggleStockFields() {
+        let status = document.getElementById('s_status').value;
+        document.getElementById('sold_fields').classList.toggle('hidden-field', status !== 'Sold');
+    }
+
+    // ---------------- Receivable Calculation ----------------
+    function calcReceivablePending() {
+        let total = Number(document.getElementById('r_total').value) || 0;
+        let received = Number(document.getElementById('r_received').value) || 0;
+        document.getElementById('r_amount').value = (total - received).toLocaleString('en-IN');
+    }
+
+    // ---------------- Dynamic Proof & Details Fields for Payable & Expense ----------------
+    function toggleDynamicFields(type) {
+        let catEl = document.getElementById(type + '_category');
+        if (!catEl) return;
+        let cat = catEl.value;
+        let container = document.getElementById(type + '_dynamic_fields');
+
+        let html = `<h6 class="mt-2">Payment Details</h6><div class="row">`;
+        html += `<div class="col-md-6 mb-2"><label>Payment Mode</label><select class="form-select" id="${type}_payMode"><option>Cash</option><option>UPI / PhonePe</option><option>Bank Transfer (NEFT/RTGS)</option><option>Cheque</option></select></div>`;
+
+        if (cat === 'Land Owner Payment') {
+            html += `<div class="col-md-6 mb-2"><label>Installment No.</label><input type="text" class="form-control" id="${type}_installment" placeholder="e.g., 3rd Installment"></div>`;
+        } else if (cat === 'Agent Commission') {
+            html += `<div class="col-md-6 mb-2"><label>Plot No (Against Deal)</label><input type="text" class="form-control" id="${type}_plotLink" placeholder="Plot No."></div>`;
+        } else if (cat === 'Office Rent') {
+            html += `<div class="col-md-6 mb-2"><label>For Month</label><input type="text" class="form-control" id="${type}_month" placeholder="e.g., August"></div>`;
+        } else if (cat === 'Travelling') {
+            html += `<div class="col-md-6 mb-2"><label>Vehicle No / Purpose</label><input type="text" class="form-control" id="${type}_vehicle" placeholder="e.g., Car / Site Visit"></div>`;
+        }
+
+        html += `</div>`;
+        container.innerHTML = html;
+    }
+
+    // ---------------- Data Submission ----------------
+    function postData(data, btnId, moduleKey) {
+        let btn = document.getElementById(btnId);
+        if (btn) { btn.disabled = true; btn.innerText = 'Saving...'; }
+
+        fetch(SCRIPT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify(data)
+        })
+        .then(res => res.json())
+        .then(res => {
+            if (btn) { btn.disabled = false; }
+            if (res && res.status === 'ok') {
+                showMsg('successMsg');
+                resetForm(moduleKey);
+                loadModuleList(moduleKey);
+            } else {
+                showMsg('errorMsg');
+                if (btn) restoreBtnLabel(btnId);
+            }
+        })
+        .catch(err => {
+            if (btn) { btn.disabled = false; restoreBtnLabel(btnId); }
+            showMsg('errorMsg');
+            console.error('Save error:', err);
+        });
+    }
+
+    function showMsg(id) {
+        document.getElementById(id).style.display = 'block';
+        setTimeout(() => { document.getElementById(id).style.display = 'none'; }, 3000);
+    }
+
+    const BTN_LABELS = {
+        btn_stock: 'Submit Stock Data', btn_receivable: 'Submit Receivable',
+        btn_payable: 'Submit Payable', btn_expense: 'Submit Expense',
+        btn_development: 'Submit Status'
+    };
+    function restoreBtnLabel(btnId) {
+        let btn = document.getElementById(btnId);
+        if (btn && BTN_LABELS[btnId]) btn.innerText = BTN_LABELS[btnId];
+    }
+
+    // ---------------- Reset / New-Entry ----------------
+    function resetForm(moduleKey) {
+        const prefix = { stock: 's', receivable: 'r', payable: 'p', expense: 'e', development: 'd' }[moduleKey];
+        if (!prefix) return;
+        document.getElementById(prefix + '_id').value = '';
+        document.querySelectorAll('#page-' + moduleKey + ' .form-card:first-child input, #page-' + moduleKey + ' .form-card:first-child textarea').forEach(el => {
+            if (el.type !== 'hidden') el.value = '';
+        });
+        document.querySelectorAll('#page-' + moduleKey + ' .form-card:first-child select').forEach(el => el.selectedIndex = 0);
+        if (moduleKey === 'stock') toggleStockFields();
+        if (moduleKey === 'payable') toggleDynamicFields('p');
+        if (moduleKey === 'expense') toggleDynamicFields('e');
+        document.getElementById(moduleKey + '_editing_banner').classList.add('hidden-field');
+        restoreBtnLabel('btn_' + moduleKey);
+    }
+
+    // ---------------- Module Submit Functions ----------------
+    function submitStock() {
+        let data = { module: 'Stock', id: g('s_id'), serialNo: g('s_serial'), colonyName: g('s_colony'), plotNo: g('s_plot'), size: g('s_size'), status: g('s_status'), rate: g('s_rate'), forecastTotal: g('s_forecast').replace(/,/g, '') };
+        if (data.status === 'Sold') {
+            data.advance = g('s_advance'); data.total = g('s_total'); data.balance = g('s_balance').replace(/,/g, '');
+            data.registered = g('s_registry'); data.mobile = g('s_mobile'); data.ownerName = g('s_owner'); data.mapLink = g('s_map');
+            data.lastPaymentDate = g('s_lastPayDate'); data.lastPaymentAmount = g('s_lastPayAmt'); data.bookingFormLink = g('s_bookingForm');
+        }
+        postData(data, 'btn_stock', 'stock');
+    }
+    function submitReceivable() {
+        postData({ module: 'Receivable', id: g('r_id'), colonyName: g('r_colony'), plotNo: g('r_plot'), ownerName: g('r_name'), totalDeal: g('r_total'), receivedTillDate: g('r_received'), amount: g('r_amount').replace(/,/g, ''), mobile: g('r_mobile'), lastPaymentDate: g('r_lastPayDate'), ledgerDocLink: g('r_ledgerDoc'), scheduleDocLink: g('r_scheduleDoc') }, 'btn_receivable', 'receivable');
+    }
+    function submitPayable() {
+        postData({ module: 'Payable', id: g('p_id'), colonyName: g('p_colony'), category: g('p_category'), amount: g('p_amount'), personName: g('p_person'), remarks: g('p_remarks'), payMode: g('p_payMode') }, 'btn_payable', 'payable');
+    }
+    function submitExpense() {
+        postData({ module: 'Expense', id: g('e_id'), category: g('e_category'), amount: g('e_amount'), personName: g('e_person'), remarks: g('e_remarks'), payMode: g('e_payMode') }, 'btn_expense', 'expense');
+    }
+    function submitDevelopment() {
+        postData({ module: 'Development', id: g('d_id'), colonyName: g('d_colony'), demarcation: g('d_demarc'), daand: g('d_daand'), soilFillingDone: g('d_soilDone'), soilFilling: g('d_soil'), daboras: g('d_daboras'), daborasLength: g('d_daborasLength'), rolling: g('d_rolling'), rollingLength: g('d_rollingLength'), tarRoad: g('d_road'), tarRoadLength: g('d_roadLength') }, 'btn_development', 'development');
+    }
+
+    function g(id) { return document.getElementById(id) ? document.getElementById(id).value : ''; }
+
+    // ---------------- Existing-entries list + Edit ----------------
+    const MODULE_FORM_MAP = {
+        stock: { module: 'Stock', prefix: 's', map: { ID: 's_id', serialNo: 's_serial', colonyName: 's_colony', plotNo: 's_plot', size: 's_size', status: 's_status', rate: 's_rate', forecastTotal: 's_forecast', advance: 's_advance', total: 's_total', balance: 's_balance', registered: 's_registry', mobile: 's_mobile', ownerName: 's_owner', mapLink: 's_map', lastPaymentDate: 's_lastPayDate', lastPaymentAmount: 's_lastPayAmt', bookingFormLink: 's_bookingForm' } },
+        receivable: { module: 'Receivable', prefix: 'r', map: { ID: 'r_id', colonyName: 'r_colony', plotNo: 'r_plot', ownerName: 'r_name', totalDeal: 'r_total', receivedTillDate: 'r_received', amount: 'r_amount', mobile: 'r_mobile', lastPaymentDate: 'r_lastPayDate', ledgerDocLink: 'r_ledgerDoc', scheduleDocLink: 'r_scheduleDoc' } },
+        payable: { module: 'Payable', prefix: 'p', map: { ID: 'p_id', colonyName: 'p_colony', category: 'p_category', amount: 'p_amount', personName: 'p_person', remarks: 'p_remarks' } },
+        expense: { module: 'Expense', prefix: 'e', map: { ID: 'e_id', category: 'e_category', amount: 'e_amount', personName: 'e_person', remarks: 'e_remarks' } },
+        development: { module: 'Development', prefix: 'd', map: { ID: 'd_id', Colony: 'd_colony', Demarcation: 'd_demarc', daand: 'd_daand', soilFillingDone: 'd_soilDone', soilFilling: 'd_soil', daboras: 'd_daboras', daborasLength: 'd_daborasLength', rolling: 'd_rolling', rollingLength: 'd_rollingLength', tarRoad: 'd_road', tarRoadLength: 'd_roadLength' } }
+    };
+
+    function loadModuleList(moduleKey) {
+        if (!isScriptUrlConfigured()) {
+            const body = document.getElementById(moduleKey + '_list_body');
+            if (body) body.innerHTML = `<tr><td colspan="7" class="text-center text-muted">Backend URL set nahi hai</td></tr>`;
+            return;
+        }
+        fetch(SCRIPT_URL).then(res => res.json()).then(data => {
+            allRowsCache = data;
+            renderModuleList(moduleKey);
+        }).catch(err => console.error('List load error:', err));
+    }
+
+    function renderModuleList(moduleKey) {
+        const cfg = MODULE_FORM_MAP[moduleKey];
+        const rows = allRowsCache.filter(r => r.Module === cfg.module);
+        const body = document.getElementById(moduleKey + '_list_body');
+        if (!body) return;
+
+        if (rows.length === 0) {
+            body.innerHTML = `<tr><td colspan="6" class="text-center text-muted">Koi entry nahi hai abhi</td></tr>`;
+            return;
+        }
+
+        let html = '';
+        rows.forEach((row, idx) => {
+            let cells = '';
+            if (moduleKey === 'stock') {
+                cells = `<td>${row.colonyName || ''}</td><td>${row.plotNo || ''}</td><td>${row.status || ''}</td><td>${row.forecastTotal || ''}</td>`;
+            } else if (moduleKey === 'receivable') {
+                cells = `<td>${row.colonyName || ''}</td><td>${row.ownerName || ''}</td><td>${row.totalDeal || ''}</td><td>${row.amount || ''}</td>`;
+            } else if (moduleKey === 'payable') {
+                cells = `<td>${row.colonyName || ''}</td><td>${row.category || ''}</td><td>${row.amount || ''}</td><td>${row.personName || ''}</td>`;
+            } else if (moduleKey === 'expense') {
+                cells = `<td>${row.category || ''}</td><td>${row.amount || ''}</td><td>${row.personName || ''}</td>`;
+            } else if (moduleKey === 'development') {
+                cells = `<td>${row.Colony || ''}</td><td>${row.daand || ''}</td><td>${row.soilFilling || ''}</td><td>${row.daborasLength || ''}</td><td>${row.rollingLength || ''}</td><td>${row.tarRoadLength || ''}</td>`;
+            }
+            html += `<tr>${cells}<td><span class="edit-btn" onclick="editEntry('${moduleKey}', ${idx})">Edit</span></td></tr>`;
+        });
+        body.innerHTML = html;
+        window['__rows_' + moduleKey] = rows;
+    }
+
+    function editEntry(moduleKey, idx) {
+        const cfg = MODULE_FORM_MAP[moduleKey];
+        const rows = window['__rows_' + moduleKey] || [];
+        const row = rows[idx];
+        if (!row) return;
+
+        Object.keys(cfg.map).forEach(key => {
+            const fieldId = cfg.map[key];
+            const el = document.getElementById(fieldId);
+            if (el && row[key] !== undefined) el.value = row[key];
+        });
+
+        if (moduleKey === 'stock') { toggleStockFields(); }
+        if (moduleKey === 'payable') { toggleDynamicFields('p'); }
+        if (moduleKey === 'expense') { toggleDynamicFields('e'); }
+
+        document.getElementById(moduleKey + '_editing_banner').classList.remove('hidden-field');
+        const btn = document.getElementById('btn_' + moduleKey);
+        if (btn) btn.innerText = 'Update Entry';
+
+        document.getElementById('page-' + moduleKey).scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // ---------------- Dashboard Logic ----------------
+    function loadDashboard() {
+        if (!isScriptUrlConfigured()) return;
+        const filterEl = document.getElementById('dashboardColonyFilter');
+        const filterColony = filterEl ? filterEl.value : '';
+
+        fetch(SCRIPT_URL)
+        .then(res => res.json())
+        .then(data => {
+            allRowsCache = data;
+            let totPlots = 0, sold = 0, unsoldVal = 0, rec = 0, pay = 0, exp = 0;
+            let colonyMap = {};
+
+            function addColony(colony, key, amt) {
+                if (!colony) return;
+                if (!colonyMap[colony]) colonyMap[colony] = { rec: 0, pay: 0 };
+                colonyMap[colony][key] += amt;
+            }
+            function matchesFilter(colony) {
+                return !filterColony || colony === filterColony;
+            }
+
+            data.forEach(row => {
+                if (row.Module === 'Stock' && matchesFilter(row.colonyName)) {
+                    totPlots++;
+                    if (row.status === 'Sold') sold++;
+                    if (row.status === 'Unsold') unsoldVal += Number(row.forecastTotal) || 0;
+                }
+                if (row.Module === 'Receivable') {
+                    let amt = Number(row.amount) || 0;
+                    addColony(row.colonyName, 'rec', amt);
+                    if (matchesFilter(row.colonyName)) rec += amt;
+                }
+                if (row.Module === 'Payable') {
+                    let amt = Number(row.amount) || 0;
+                    addColony(row.colonyName, 'pay', amt);
+                    if (matchesFilter(row.colonyName)) pay += amt;
+                }
+                // Expense ka koi colony field nahi hai, isliye yeh hamesha overall rehta hai (filter se asar nahi).
+                if (row.Module === 'Expense') exp += Number(row.amount) || 0;
+            });
+
+            document.getElementById('kpiTotalPlots').innerText = totPlots;
+            document.getElementById('kpiSold').innerText = sold;
+            document.getElementById('kpiUnsoldVal').innerText = '₹' + unsoldVal.toLocaleString('en-IN');
+            document.getElementById('kpiRec').innerText = '₹' + rec.toLocaleString('en-IN');
+            document.getElementById('kpiPay').innerText = '₹' + pay.toLocaleString('en-IN');
+            document.getElementById('kpiExp').innerText = '₹' + exp.toLocaleString('en-IN') + (filterColony ? ' (all colonies)' : '');
+            document.getElementById('kpiNet').innerText = '₹' + (rec - pay).toLocaleString('en-IN');
+
+            let summaryBody = document.getElementById('colonySummaryBody');
+            let colonies = Object.keys(colonyMap);
+            if (colonies.length === 0) {
+                summaryBody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No data yet</td></tr>';
+            } else {
+                summaryBody.innerHTML = colonies.map(c => {
+                    let v = colonyMap[c];
+                    let highlight = (c === filterColony) ? ' style="font-weight:600;"' : '';
+                    return `<tr${highlight}><td>${c}</td><td>₹${v.rec.toLocaleString('en-IN')}</td><td>₹${v.pay.toLocaleString('en-IN')}</td><td>₹${(v.rec - v.pay).toLocaleString('en-IN')}</td></tr>`;
+                }).join('');
+            }
+
+            if (chart1) chart1.destroy();
+            if (chart2) chart2.destroy();
+
+            chart1 = new Chart(document.getElementById('chartPlotStatus').getContext('2d'), {
+                type: 'doughnut', data: { labels: ['Sold Plots', 'Unsold Plots'], datasets: [{ data: [sold, (totPlots - sold)], backgroundColor: ['#15803d', '#b91c1c'] }] }
+            });
+            chart2 = new Chart(document.getElementById('chartFinance').getContext('2d'), {
+                type: 'bar', data: { labels: ['Receivable', 'Payables', 'Expenses'], datasets: [{ data: [rec, pay, exp], backgroundColor: ['#2c5282', '#b91c1c', '#b45309'] }] }
+            });
+        })
+        .catch(err => console.error('Dashboard load error:', err));
+    }
+
+    function initDashboardColonyFilter() {
+        loadColonies().then(colonies => {
+            const el = document.getElementById('dashboardColonyFilter');
+            if (!el) return;
+            const currentVal = el.value;
+            el.innerHTML = '<option value="">All Colonies</option>' + colonies.map(c => `<option value="${c}">${c}</option>`).join('');
+            if (colonies.includes(currentVal)) el.value = currentVal;
+        });
+    }
+
+    window.onload = () => {
+        if (!isScriptUrlConfigured()) {
+            document.getElementById('setupWarning').style.display = 'block';
+        }
+        initColonyDropdowns();
+        initDashboardColonyFilter();
+        loadDashboard();
+    };
+</script>
+
+</body>
+</html>
